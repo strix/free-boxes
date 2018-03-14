@@ -1,9 +1,21 @@
+require('dotenv').config()
 const puppeteer = require('puppeteer')
 const selectors = require('./selectors')
 
 const city = 'stgeorge'
 const strictSearch = 'box'
 const freeBoxUrl = `https://${city}.craigslist.org/search/zip?query=boxes`
+const mailgun = require('mailgun.js')
+const mg = mailgun.client({username: process.env.MAILGUN_USERNAME, key: process.env.MAILGUN_API_KEY})
+
+const getMailString = listings => {
+  let fullStr = ''
+  for (const listing of listings) {
+    fullStr += `Giver: ${listing.posterName}<br />Email: ${listing.posterEmail}<br />Phone Number: ${listing.posterPhone}<br />Title: ${listing.title}<br />Description: ${listing.description}<br />See full post: ${listing.url}`
+    fullStr += '<br /><br />-------------------------------------<br /><br />'
+  }
+  return fullStr
+}
 
 ;(async () => {
   const browser = await puppeteer.launch({
@@ -57,6 +69,14 @@ const freeBoxUrl = `https://${city}.craigslist.org/search/zip?query=boxes`
       listings.push(listing)
     }
     console.log(listings)
+    const mailResponse = await mg.messages.create(process.env.MAILGUN_DOMAIN, {
+      from: `Free Boxes <${process.env.SENDER}>`,
+      to: process.env.RECIPIENTS.split(';'),
+      subject: 'Listings for Free Boxes',
+      text: getMailString(listings),
+      html: getMailString(listings)
+    })
+    console.log(mailResponse)
   } catch (err) {
     console.log(err)
   }
